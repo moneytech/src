@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004-2006  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: peer.h,v 1.20.18.8 2006/02/28 03:10:48 marka Exp $ */
+/* $Id: peer.h,v 1.4 2020/01/09 18:17:16 florian Exp $ */
 
 #ifndef DNS_PEER_H
 #define DNS_PEER_H 1
@@ -24,7 +23,7 @@
  ***** Module Info
  *****/
 
-/*! \file
+/*! \file dns/peer.h
  * \brief
  * Data structures for peers (e.g. a 'server' config file statement)
  */
@@ -51,7 +50,7 @@
 
 struct dns_peerlist {
 	unsigned int		magic;
-	isc_uint32_t		refs;
+	uint32_t		refs;
 
 	isc_mem_t	       *mem;
 
@@ -60,7 +59,7 @@ struct dns_peerlist {
 
 struct dns_peer {
 	unsigned int		magic;
-	isc_uint32_t		refs;
+	uint32_t		refs;
 
 	isc_mem_t	       *mem;
 
@@ -68,19 +67,25 @@ struct dns_peer {
 	unsigned int		prefixlen;
 	isc_boolean_t		bogus;
 	dns_transfer_format_t	transfer_format;
-	isc_uint32_t		transfers;
+	uint32_t		transfers;
 	isc_boolean_t		support_ixfr;
 	isc_boolean_t		provide_ixfr;
 	isc_boolean_t		request_ixfr;
 	isc_boolean_t		support_edns;
+	isc_boolean_t		request_nsid;
+	isc_boolean_t		request_sit;
+	isc_boolean_t		force_tcp;
 	dns_name_t	       *key;
 	isc_sockaddr_t	       *transfer_source;
-	isc_sockaddr_t	       *notify_source;  
-	isc_sockaddr_t	       *query_source;  
-	isc_uint16_t		udpsize;		/* recieve size */
-	isc_uint16_t		maxudp;			/* transmit size */
+	isc_dscp_t		transfer_dscp;
+	isc_sockaddr_t	       *notify_source;
+	isc_dscp_t		notify_dscp;
+	isc_sockaddr_t	       *query_source;
+	isc_dscp_t		query_dscp;
+	uint16_t		udpsize;		/* receive size */
+	uint16_t		maxudp;			/* transmit size */
 
-	isc_uint32_t		bitflags;
+	uint32_t		bitflags;
 
 	ISC_LINK(dns_peer_t)	next;
 };
@@ -150,16 +155,34 @@ isc_result_t
 dns_peer_getprovideixfr(dns_peer_t *peer, isc_boolean_t *retval);
 
 isc_result_t
+dns_peer_setrequestnsid(dns_peer_t *peer, isc_boolean_t newval);
+
+isc_result_t
+dns_peer_getrequestnsid(dns_peer_t *peer, isc_boolean_t *retval);
+
+isc_result_t
+dns_peer_setrequestsit(dns_peer_t *peer, isc_boolean_t newval);
+
+isc_result_t
+dns_peer_getrequestsit(dns_peer_t *peer, isc_boolean_t *retval);
+
+isc_result_t
+dns_peer_setforcetcp(dns_peer_t *peer, isc_boolean_t newval);
+
+isc_result_t
+dns_peer_getforcetcp(dns_peer_t *peer, isc_boolean_t *retval);
+
+isc_result_t
 dns_peer_setsupportedns(dns_peer_t *peer, isc_boolean_t newval);
 
 isc_result_t
 dns_peer_getsupportedns(dns_peer_t *peer, isc_boolean_t *retval);
 
 isc_result_t
-dns_peer_settransfers(dns_peer_t *peer, isc_uint32_t newval);
+dns_peer_settransfers(dns_peer_t *peer, uint32_t newval);
 
 isc_result_t
-dns_peer_gettransfers(dns_peer_t *peer, isc_uint32_t *retval);
+dns_peer_gettransfers(dns_peer_t *peer, uint32_t *retval);
 
 isc_result_t
 dns_peer_settransferformat(dns_peer_t *peer, dns_transfer_format_t newval);
@@ -184,16 +207,16 @@ isc_result_t
 dns_peer_gettransfersource(dns_peer_t *peer, isc_sockaddr_t *transfer_source);
 
 isc_result_t
-dns_peer_setudpsize(dns_peer_t *peer, isc_uint16_t udpsize);
+dns_peer_setudpsize(dns_peer_t *peer, uint16_t udpsize);
 
 isc_result_t
-dns_peer_getudpsize(dns_peer_t *peer, isc_uint16_t *udpsize);
+dns_peer_getudpsize(dns_peer_t *peer, uint16_t *udpsize);
 
 isc_result_t
-dns_peer_setmaxudp(dns_peer_t *peer, isc_uint16_t maxudp);
+dns_peer_setmaxudp(dns_peer_t *peer, uint16_t maxudp);
 
 isc_result_t
-dns_peer_getmaxudp(dns_peer_t *peer, isc_uint16_t *maxudp);
+dns_peer_getmaxudp(dns_peer_t *peer, uint16_t *maxudp);
 
 isc_result_t
 dns_peer_setnotifysource(dns_peer_t *peer, const isc_sockaddr_t *notify_source);
@@ -207,6 +230,23 @@ dns_peer_setquerysource(dns_peer_t *peer, const isc_sockaddr_t *query_source);
 isc_result_t
 dns_peer_getquerysource(dns_peer_t *peer, isc_sockaddr_t *query_source);
 
+isc_result_t
+dns_peer_setnotifydscp(dns_peer_t *peer, isc_dscp_t dscp);
+
+isc_result_t
+dns_peer_getnotifydscp(dns_peer_t *peer, isc_dscp_t *dscpp);
+
+isc_result_t
+dns_peer_settransferdscp(dns_peer_t *peer, isc_dscp_t dscp);
+
+isc_result_t
+dns_peer_gettransferdscp(dns_peer_t *peer, isc_dscp_t *dscpp);
+
+isc_result_t
+dns_peer_setquerydscp(dns_peer_t *peer, isc_dscp_t dscp);
+
+isc_result_t
+dns_peer_getquerydscp(dns_peer_t *peer, isc_dscp_t *dscpp);
 ISC_LANG_ENDDECLS
 
 #endif /* DNS_PEER_H */

@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2003  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: net.h,v 1.39.18.4 2005/04/27 05:02:37 sra Exp $ */
+/* $Id: net.h,v 1.5 2020/01/09 18:17:20 florian Exp $ */
 
 #ifndef ISC_NET_H
 #define ISC_NET_H 1
@@ -37,6 +36,7 @@
  *\li		struct sockaddr
  *\li		struct sockaddr_in
  *\li		struct sockaddr_in6
+ *\li		struct sockaddr_storage
  *\li		in_port_t
  *
  * It ensures that the AF_ and PF_ macros are defined.
@@ -46,7 +46,7 @@
  * It declares inet_aton(), inet_ntop(), and inet_pton().
  *
  * It ensures that #INADDR_LOOPBACK, #INADDR_ANY, #IN6ADDR_ANY_INIT,
- * in6addr_any, and in6addr_loopback are available.
+ * IN6ADDR_V4MAPPED_INIT, in6addr_any, and in6addr_loopback are available.
  *
  * It ensures that IN_MULTICAST() is available to check for multicast
  * addresses.
@@ -80,31 +80,16 @@
 
 #include <netinet/in.h>		/* Contractual promise. */
 #include <arpa/inet.h>		/* Contractual promise. */
-#ifdef ISC_PLATFORM_NEEDNETINETIN6H
-#include <netinet/in6.h>	/* Required on UnixWare. */
-#endif
-#ifdef ISC_PLATFORM_NEEDNETINET6IN6H
-#include <netinet6/in6.h>	/* Required on BSD/OS for in6_pktinfo. */
-#endif
-
-#ifndef ISC_PLATFORM_HAVEIPV6
-#include <isc/ipv6.h>		/* Contractual promise. */
-#endif
 
 #include <isc/lang.h>
 #include <isc/types.h>
 
-#ifdef ISC_PLATFORM_HAVEINADDR6
-#define in6_addr in_addr6	/*%< Required for pre RFC2133 implementations. */
-#endif
-
-#ifdef ISC_PLATFORM_HAVEIPV6
 #ifndef IN6ADDR_ANY_INIT
 #ifdef s6_addr
 /*%
  * Required for some pre RFC2133 implementations.
  * IN6ADDR_ANY_INIT and IN6ADDR_LOOPBACK_INIT were added in
- * draft-ietf-ipngwg-bsd-api-04.txt or draft-ietf-ipngwg-bsd-api-05.txt.  
+ * draft-ietf-ipngwg-bsd-api-04.txt or draft-ietf-ipngwg-bsd-api-05.txt.
  * If 's6_addr' is defined then assume that there is a union and three
  * levels otherwise assume two levels required.
  */
@@ -120,6 +105,15 @@
 #define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
 #else
 #define IN6ADDR_LOOPBACK_INIT { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } }
+#endif
+#endif
+
+#ifndef IN6ADDR_V4MAPPED_INIT
+#ifdef s6_addr
+/*% IPv6 v4mapped prefix init */
+#define IN6ADDR_V4MAPPED_INIT { { { 0,0,0,0,0,0,0,0,0,0,0xff,0xff,0,0,0,0 } } }
+#else
+#define IN6ADDR_V4MAPPED_INIT { { 0,0,0,0,0,0,0,0,0,0,0xff,0xff,0,0,0,0 } }
 #endif
 #endif
 
@@ -162,7 +156,6 @@
 #define IN6_IS_ADDR_LOOPBACK(x) \
 	(memcmp((x)->s6_addr, in6addr_loopback.s6_addr, 16) == 0)
 #endif
-#endif
 
 #ifndef AF_INET6
 /*% IPv6 */
@@ -174,59 +167,16 @@
 #define PF_INET6 AF_INET6
 #endif
 
+#ifndef INADDR_ANY
+/*% inaddr any */
+#define INADDR_ANY 0x00000000UL
+#endif
+
 #ifndef INADDR_LOOPBACK
 /*% inaddr loopback */
 #define INADDR_LOOPBACK 0x7f000001UL
 #endif
 
-#ifndef ISC_PLATFORM_HAVEIN6PKTINFO
-/*% IPv6 packet info */
-struct in6_pktinfo {
-	struct in6_addr ipi6_addr;    /*%< src/dst IPv6 address */
-	unsigned int    ipi6_ifindex; /*%< send/recv interface index */
-};
-#endif
-
-#if defined(ISC_PLATFORM_HAVEIPV6) && defined(ISC_PLATFORM_NEEDIN6ADDRANY)
-extern const struct in6_addr isc_net_in6addrany;
-/*%
- * Cope with a missing in6addr_any and in6addr_loopback.
- */
-#define in6addr_any isc_net_in6addrany
-#endif
-
-#if defined(ISC_PLATFORM_HAVEIPV6) && defined(ISC_PLATFORM_NEEDIN6ADDRLOOPBACK)
-extern const struct in6_addr isc_net_in6addrloop;
-#define in6addr_loopback isc_net_in6addrloop
-#endif
-
-#ifdef ISC_PLATFORM_FIXIN6ISADDR
-#undef  IN6_IS_ADDR_GEOGRAPHIC
-/*! 
- * \brief
- * Fix UnixWare 7.1.1's broken IN6_IS_ADDR_* definitions.
- */
-#define IN6_IS_ADDR_GEOGRAPHIC(a) (((a)->S6_un.S6_l[0] & 0xE0) == 0x80)
-#undef  IN6_IS_ADDR_IPX
-#define IN6_IS_ADDR_IPX(a)        (((a)->S6_un.S6_l[0] & 0xFE) == 0x04)
-#undef  IN6_IS_ADDR_LINKLOCAL
-#define IN6_IS_ADDR_LINKLOCAL(a)  (((a)->S6_un.S6_l[0] & 0xC0FF) == 0x80FE)
-#undef  IN6_IS_ADDR_MULTICAST
-#define IN6_IS_ADDR_MULTICAST(a)  (((a)->S6_un.S6_l[0] & 0xFF) == 0xFF)
-#undef  IN6_IS_ADDR_NSAP
-#define IN6_IS_ADDR_NSAP(a)       (((a)->S6_un.S6_l[0] & 0xFE) == 0x02)
-#undef  IN6_IS_ADDR_PROVIDER
-#define IN6_IS_ADDR_PROVIDER(a)   (((a)->S6_un.S6_l[0] & 0xE0) == 0x40)
-#undef  IN6_IS_ADDR_SITELOCAL
-#define IN6_IS_ADDR_SITELOCAL(a)  (((a)->S6_un.S6_l[0] & 0xC0FF) == 0xC0FE)
-#endif /* ISC_PLATFORM_FIXIN6ISADDR */
-
-#ifdef ISC_PLATFORM_NEEDPORTT
-/*%
- * Ensure type in_port_t is defined.
- */
-typedef isc_uint16_t in_port_t;
-#endif
 
 #ifndef MSG_TRUNC
 /*%
@@ -238,15 +188,15 @@ typedef isc_uint16_t in_port_t;
 #endif
 
 /*% IP address. */
-#define ISC__IPADDR(x)	((isc_uint32_t)htonl((isc_uint32_t)(x)))
+#define ISC__IPADDR(x)	((uint32_t)htonl((uint32_t)(x)))
 
 /*% Is IP address multicast? */
 #define ISC_IPADDR_ISMULTICAST(i) \
-		(((isc_uint32_t)(i) & ISC__IPADDR(0xf0000000)) \
+		(((uint32_t)(i) & ISC__IPADDR(0xf0000000)) \
 		 == ISC__IPADDR(0xe0000000))
 
 #define ISC_IPADDR_ISEXPERIMENTAL(i) \
-		(((isc_uint32_t)(i) & ISC__IPADDR(0xf0000000)) \
+		(((uint32_t)(i) & ISC__IPADDR(0xf0000000)) \
 		 == ISC__IPADDR(0xf0000000))
 
 /***
@@ -324,24 +274,42 @@ isc_net_probeunix(void);
  * Returns whether UNIX domain sockets are supported.
  */
 
-#ifdef ISC_PLATFORM_NEEDNTOP
-const char *
-isc_net_ntop(int af, const void *src, char *dst, size_t size);
-#define inet_ntop isc_net_ntop
-#endif
+#define ISC_NET_DSCPRECVV4	0x01	/* Can receive sent DSCP value IPv4 */
+#define ISC_NET_DSCPRECVV6	0x02	/* Can receive sent DSCP value IPv6 */
+#define ISC_NET_DSCPSETV4	0x04	/* Can set DSCP on socket IPv4 */
+#define ISC_NET_DSCPSETV6	0x08	/* Can set DSCP on socket IPv6 */
+#define ISC_NET_DSCPPKTV4	0x10	/* Can set DSCP on per packet IPv4 */
+#define ISC_NET_DSCPPKTV6	0x20	/* Can set DSCP on per packet IPv6 */
+#define ISC_NET_DSCPALL		0x3f	/* All valid flags */
 
-#ifdef ISC_PLATFORM_NEEDPTON
-int
-isc_net_pton(int af, const char *src, void *dst);
-#undef inet_pton
-#define inet_pton isc_net_pton
-#endif
+unsigned int
+isc_net_probedscp(void);
+/*%<
+ * Probe the level of DSCP support.
+ */
 
-#ifdef ISC_PLATFORM_NEEDATON
+
+isc_result_t
+isc_net_getudpportrange(int af, in_port_t *low, in_port_t *high);
+/*%<
+ * Returns system's default range of ephemeral UDP ports, if defined.
+ * If the range is not available or unknown, ISC_NET_PORTRANGELOW and
+ * ISC_NET_PORTRANGEHIGH will be returned.
+ *
+ * Requires:
+ *
+ *\li	'low' and 'high' must be non NULL.
+ *
+ * Returns:
+ *
+ *\li	*low and *high will be the ports specifying the low and high ends of
+ *	the range.
+ */
+
 int
 isc_net_aton(const char *cp, struct in_addr *addr);
+#undef inet_aton
 #define inet_aton isc_net_aton
-#endif
 
 ISC_LANG_ENDDECLS
 

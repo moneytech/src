@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004-2006  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2001  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: compress.c,v 1.52.18.5 2006/03/02 00:37:21 marka Exp $ */
+/* $Id: compress.c,v 1.4 2020/01/09 18:17:14 florian Exp $ */
 
 /*! \file */
 
@@ -132,7 +131,7 @@ do { \
  */
 isc_boolean_t
 dns_compress_findglobal(dns_compress_t *cctx, const dns_name_t *name,
-			dns_name_t *prefix, isc_uint16_t *offset)
+			dns_name_t *prefix, uint16_t *offset)
 {
 	dns_name_t tname, nname;
 	dns_compressnode_t *node = NULL;
@@ -194,7 +193,7 @@ name_length(const dns_name_t *name) {
 
 void
 dns_compress_add(dns_compress_t *cctx, const dns_name_t *name,
-		 const dns_name_t *prefix, isc_uint16_t offset)
+		 const dns_name_t *prefix, uint16_t offset)
 {
 	dns_name_t tname;
 	unsigned int start;
@@ -204,7 +203,7 @@ dns_compress_add(dns_compress_t *cctx, const dns_name_t *name,
 	dns_compressnode_t *node;
 	unsigned int length;
 	unsigned int tlength;
-	isc_uint16_t toffset;
+	uint16_t toffset;
 
 	REQUIRE(VALID_CCTX(cctx));
 	REQUIRE(dns_name_isabsolute(name));
@@ -224,7 +223,7 @@ dns_compress_add(dns_compress_t *cctx, const dns_name_t *name,
 		hash = dns_name_hash(&tname, ISC_FALSE) %
 		       DNS_COMPRESS_TABLESIZE;
 		tlength = name_length(&tname);
-		toffset = (isc_uint16_t)(offset + (length - tlength));
+		toffset = (uint16_t)(offset + (length - tlength));
 		/*
 		 * Create a new node and add it.
 		 */
@@ -239,7 +238,7 @@ dns_compress_add(dns_compress_t *cctx, const dns_name_t *name,
 		node->count = cctx->count++;
 		node->offset = toffset;
 		dns_name_toregion(&tname, &node->r);
-		node->labels = (isc_uint8_t)dns_name_countlabels(&tname);
+		node->labels = (uint8_t)dns_name_countlabels(&tname);
 		node->next = cctx->table[hash];
 		cctx->table[hash] = node;
 		start++;
@@ -249,7 +248,7 @@ dns_compress_add(dns_compress_t *cctx, const dns_name_t *name,
 }
 
 void
-dns_compress_rollback(dns_compress_t *cctx, isc_uint16_t offset) {
+dns_compress_rollback(dns_compress_t *cctx, uint16_t offset) {
 	unsigned int i;
 	dns_compressnode_t *node;
 
@@ -260,7 +259,7 @@ dns_compress_rollback(dns_compress_t *cctx, isc_uint16_t offset) {
 		/*
 		 * This relies on nodes with greater offsets being
 		 * closer to the beginning of the list, and the
-		 * items with the greatest offsets being at the end 
+		 * items with the greatest offsets being at the end
 		 * of the initialnodes[] array.
 		 */
 		while (node != NULL && node->offset >= offset) {

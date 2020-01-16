@@ -1,4 +1,4 @@
-/* $OpenBSD: key-bindings.c,v 1.101 2019/09/18 15:09:05 nicm Exp $ */
+/* $OpenBSD: key-bindings.c,v 1.106 2020/01/05 20:39:25 nicm Exp $ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -24,12 +24,6 @@
 
 #include "tmux.h"
 
-#define DEFAULT_CLIENT_MENU \
-	" 'Detach' 'd' {detach-client}" \
-	" 'Detach & Kill' 'X' {detach-client -P}" \
-	" 'Detach Others' 'o' {detach-client -a}" \
-	" ''" \
-	" 'Lock' 'l' {lock-client}"
 #define DEFAULT_SESSION_MENU \
 	" 'Next' 'n' {switch-client -n}" \
 	" 'Previous' 'p' {switch-client -p}" \
@@ -91,6 +85,14 @@ key_bindings_cmp(struct key_binding *bd1, struct key_binding *bd2)
 	return (0);
 }
 
+static void
+key_bindings_free(struct key_table *table, struct key_binding *bd)
+{
+	RB_REMOVE(key_bindings, &table->key_bindings, bd);
+	cmd_list_free(bd->cmdlist);
+	free(bd);
+}
+
 struct key_table *
 key_bindings_get_table(const char *name, int create)
 {
@@ -132,11 +134,8 @@ key_bindings_unref_table(struct key_table *table)
 	if (--table->references != 0)
 		return;
 
-	RB_FOREACH_SAFE(bd, key_bindings, &table->key_bindings, bd1) {
-		RB_REMOVE(key_bindings, &table->key_bindings, bd);
-		cmd_list_free(bd->cmdlist);
-		free(bd);
-	}
+	RB_FOREACH_SAFE(bd, key_bindings, &table->key_bindings, bd1)
+		key_bindings_free(table, bd);
 
 	free((void *)table->name);
 	free(table);
@@ -168,17 +167,13 @@ key_bindings_add(const char *name, key_code key, int repeat,
     struct cmd_list *cmdlist)
 {
 	struct key_table	*table;
-	struct key_binding	 bd_find, *bd;
+	struct key_binding	*bd;
 
 	table = key_bindings_get_table(name, 1);
 
-	bd_find.key = (key & ~KEYC_XTERM);
-	bd = RB_FIND(key_bindings, &table->key_bindings, &bd_find);
-	if (bd != NULL) {
-		RB_REMOVE(key_bindings, &table->key_bindings, bd);
-		cmd_list_free(bd->cmdlist);
-		free(bd);
-	}
+	bd = key_bindings_get(table, key & ~KEYC_XTERM);
+	if (bd != NULL)
+		key_bindings_free(table, bd);
 
 	bd = xcalloc(1, sizeof *bd);
 	bd->key = key;
@@ -193,20 +188,16 @@ void
 key_bindings_remove(const char *name, key_code key)
 {
 	struct key_table	*table;
-	struct key_binding	 bd_find, *bd;
+	struct key_binding	*bd;
 
 	table = key_bindings_get_table(name, 0);
 	if (table == NULL)
 		return;
 
-	bd_find.key = (key & ~KEYC_XTERM);
-	bd = RB_FIND(key_bindings, &table->key_bindings, &bd_find);
+	bd = key_bindings_get(table, key & ~KEYC_XTERM);
 	if (bd == NULL)
 		return;
-
-	RB_REMOVE(key_bindings, &table->key_bindings, bd);
-	cmd_list_free(bd->cmdlist);
-	free(bd);
+	key_bindings_free(table, bd);
 
 	if (RB_EMPTY(&table->key_bindings)) {
 		RB_REMOVE(key_tables, &key_tables, table);
@@ -325,7 +316,6 @@ key_bindings_init(void)
 		"bind -n MouseDrag1Pane if -Ft= '#{mouse_any_flag}' 'if -Ft= \"#{pane_in_mode}\" \"copy-mode -M\" \"send-keys -M\"' 'copy-mode -M'",
 		"bind -n WheelUpPane if -Ft= '#{mouse_any_flag}' 'send-keys -M' 'if -Ft= \"#{pane_in_mode}\" \"send-keys -M\" \"copy-mode -et=\"'",
 
-		"bind -n MouseDown3StatusRight display-menu -t= -xM -yS -T \"#[align=centre]#{client_name}\" " DEFAULT_CLIENT_MENU,
 		"bind -n MouseDown3StatusLeft display-menu -t= -xM -yS -T \"#[align=centre]#{session_name}\" " DEFAULT_SESSION_MENU,
 		"bind -n MouseDown3Status display-menu -t= -xW -yS -T \"#[align=centre]#{window_index}:#{window_name}\" " DEFAULT_WINDOW_MENU,
 		"bind < display-menu -xW -yS -T \"#[align=centre]#{window_index}:#{window_name}\" " DEFAULT_WINDOW_MENU,
@@ -402,6 +392,8 @@ key_bindings_init(void)
 		"bind -Tcopy-mode C-Up send -X scroll-up",
 		"bind -Tcopy-mode C-Down send -X scroll-down",
 
+		"bind -Tcopy-mode-vi '#' send -FX search-backward '#{copy_cursor_word}'",
+		"bind -Tcopy-mode-vi * send -FX search-forward '#{copy_cursor_word}'",
 		"bind -Tcopy-mode-vi C-c send -X cancel",
 		"bind -Tcopy-mode-vi C-d send -X halfpage-down",
 		"bind -Tcopy-mode-vi C-e send -X scroll-down",
@@ -508,12 +500,16 @@ key_bindings_dispatch(struct key_binding *bd, struct cmdq_item *item,
 	struct cmdq_item	*new_item;
 	int			 readonly;
 
-	readonly = 1;
-	TAILQ_FOREACH(cmd, &bd->cmdlist->list, qentry) {
-		if (!(cmd->entry->flags & CMD_READONLY))
-			readonly = 0;
+	if (c == NULL || (~c->flags & CLIENT_READONLY))
+		readonly = 1;
+	else {
+		readonly = 1;
+		TAILQ_FOREACH(cmd, &bd->cmdlist->list, qentry) {
+			if (~cmd->entry->flags & CMD_READONLY)
+				readonly = 0;
+		}
 	}
-	if (!readonly && (c->flags & CLIENT_READONLY))
+	if (!readonly)
 		new_item = cmdq_get_callback(key_bindings_read_only, NULL);
 	else {
 		new_item = cmdq_get_command(bd->cmdlist, fs, m, 0);
@@ -521,8 +517,8 @@ key_bindings_dispatch(struct key_binding *bd, struct cmdq_item *item,
 			new_item->shared->flags |= CMDQ_SHARED_REPEAT;
 	}
 	if (item != NULL)
-		cmdq_insert_after(item, new_item);
+		new_item = cmdq_insert_after(item, new_item);
 	else
-		cmdq_append(c, new_item);
+		new_item = cmdq_append(c, new_item);
 	return (new_item);
 }

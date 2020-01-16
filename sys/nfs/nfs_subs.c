@@ -1,4 +1,4 @@
-/*	$OpenBSD: nfs_subs.c,v 1.139 2018/11/30 09:24:57 claudio Exp $	*/
+/*	$OpenBSD: nfs_subs.c,v 1.142 2020/01/14 21:38:02 bluhm Exp $	*/
 /*	$NetBSD: nfs_subs.c,v 1.27.4.3 1996/07/08 20:34:24 jtc Exp $	*/
 
 /*
@@ -1509,17 +1509,16 @@ netaddr_match(int family, union nethostaddr *haddr, struct mbuf *nam)
 void
 nfs_clearcommit(struct mount *mp)
 {
-	struct vnode *vp, *nvp;
-	struct buf *bp, *nbp;
+	struct vnode *vp;
+	struct buf *bp;
 	int s;
 
 	s = splbio();
 loop:
-	for (vp = LIST_FIRST(&mp->mnt_vnodelist); vp != NULL; vp = nvp) {
+	TAILQ_FOREACH(vp, &mp->mnt_vnodelist, v_mntvnodes) {
 		if (vp->v_mount != mp)	/* Paranoia */
 			goto loop;
-		nvp = LIST_NEXT(vp, v_mntvnodes);
-		LIST_FOREACH_SAFE(bp, &vp->v_dirtyblkhd, b_vnbufs, nbp) {
+		LIST_FOREACH(bp, &vp->v_dirtyblkhd, b_vnbufs) {
 			if ((bp->b_flags & (B_BUSY | B_DELWRI | B_NEEDCOMMIT))
 			    == (B_DELWRI | B_NEEDCOMMIT))
 				bp->b_flags &= ~B_NEEDCOMMIT;

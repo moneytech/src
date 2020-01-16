@@ -1,4 +1,4 @@
-/*	$OpenBSD: vfs_bio.c,v 1.191 2019/07/19 00:24:31 cheloha Exp $	*/
+/*	$OpenBSD: vfs_bio.c,v 1.195 2019/12/30 22:17:14 beck Exp $	*/
 /*	$NetBSD: vfs_bio.c,v 1.44 1996/06/11 11:15:36 pk Exp $	*/
 
 /*
@@ -399,7 +399,7 @@ buf_flip_high(struct buf *bp)
 
 /*
  * Flip a buffer to dma reachable memory, when we need it there for
- * I/O. This can sleep since it will wait for memory alloacation in the
+ * I/O. This can sleep since it will wait for memory allocation in the
  * DMA reachable area since we have to have the buffer there to proceed.
  */
 void
@@ -551,6 +551,24 @@ bread_cluster_callback(struct buf *bp)
 	for (i = 1; xbpp[i] != NULL; i++) {
 		if (ISSET(bp->b_flags, B_ERROR))
 			SET(xbpp[i]->b_flags, B_INVAL | B_ERROR);
+		/*
+		 * Move the pages from the master buffer's uvm object
+		 * into the individual buffer's uvm objects.
+		 */
+		struct uvm_object *newobj = &xbpp[i]->b_uobj;
+		struct uvm_object *oldobj = &bp->b_uobj;
+		int page;
+
+		uvm_objinit(newobj, NULL, 1);
+		for (page = 0; page < atop(xbpp[i]->b_bufsize); page++) {
+			struct vm_page *pg = uvm_pagelookup(oldobj,
+			    xbpp[i]->b_poffs + ptoa(page));
+			KASSERT(pg != NULL);
+			KASSERT(pg->wire_count = 1);
+			uvm_pagerealloc(pg, newobj, xbpp[i]->b_poffs + ptoa(page));
+		}
+		xbpp[i]->b_pobj = newobj;
+
 		biodone(xbpp[i]);
 	}
 
@@ -857,6 +875,13 @@ brelse(struct buf *bp)
 		KASSERT(bp->b_bufsize > 0);
 
 	/*
+	 * softdep is basically incompatible with not cacheing buffers
+	 * that have dependencies, so this buffer must be cached
+	 */
+	if (LIST_FIRST(&bp->b_dep) != NULL)
+		CLR(bp->b_flags, B_NOCACHE);
+
+	/*
 	 * Determine which queue the buffer should be on, then put it there.
 	 */
 
@@ -1083,14 +1108,14 @@ buf_get(struct vnode *vp, daddr_t blkno, size_t size)
 		    curproc != syncerproc && curproc != cleanerproc) {
 			wakeup(&bd_req);
 			needbuffer++;
-			tsleep(&needbuffer, PRIBIO, "needbuffer", 0);
+			tsleep_nsec(&needbuffer, PRIBIO, "needbuffer", INFSLP);
 			splx(s);
 			return (NULL);
 		}
 		if (bcstats.dmapages + npages > bufpages) {
 			/* cleaner or syncer */
 			nobuffers = 1;
-			tsleep(&nobuffers, PRIBIO, "nobuffers", 0);
+			tsleep_nsec(&nobuffers, PRIBIO, "nobuffers", INFSLP);
 			splx(s);
 			return (NULL);
 		}
@@ -1173,7 +1198,7 @@ buf_daemon(void *arg)
 				needbuffer = 0;
 				wakeup(&needbuffer);
 			}
-			tsleep(&bd_req, PRIBIO - 7, "cleaner", 0);
+			tsleep_nsec(&bd_req, PRIBIO - 7, "cleaner", INFSLP);
 		}
 
 		while ((bp = bufcache_getdirtybuf())) {
@@ -1229,7 +1254,7 @@ biowait(struct buf *bp)
 
 	s = splbio();
 	while (!ISSET(bp->b_flags, B_DONE))
-		tsleep(bp, PRIBIO + 1, "biowait", 0);
+		tsleep_nsec(bp, PRIBIO + 1, "biowait", INFSLP);
 	splx(s);
 
 	/* check for interruption of I/O (e.g. via NFS), then errors. */
@@ -1365,7 +1390,7 @@ buf_adjcnt(struct buf *bp, long ncount)
  * temporarily hot to the long term cache.
  *
  * The objective is to provide scan resistance by making the long term
- * working set ineligible for immediate recycling, even as the current 
+ * working set ineligible for immediate recycling, even as the current
  * working set is rapidly turned over.
  *
  * Implementation
@@ -1450,7 +1475,7 @@ bufcache_getcleanbuf(int cachenum, int discard)
 
 	splassert(IPL_BIO);
 
-	/* try  cold queue */
+	/* try cold queue */
 	while ((bp = TAILQ_FIRST(&cache->coldqueue)) ||
 	    (bp = TAILQ_FIRST(&cache->warmqueue)) ||
 	    (bp = TAILQ_FIRST(&cache->hotqueue))) {

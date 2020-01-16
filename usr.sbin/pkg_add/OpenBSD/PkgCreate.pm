@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 # ex:ts=8 sw=4:
-# $OpenBSD: PkgCreate.pm,v 1.163 2019/07/21 14:05:30 espie Exp $
+# $OpenBSD: PkgCreate.pm,v 1.166 2020/01/13 13:11:31 espie Exp $
 #
 # Copyright (c) 2003-2014 Marc Espie <espie@openbsd.org>
 #
@@ -981,27 +981,50 @@ sub ask_tree
 	my ($self, $state, $pkgpath, $portsdir, $data, @action) = @_;
 
 	my $make = OpenBSD::Paths->make;
+	my $errors = OpenBSD::Temp->file;
+	if (!defined $errors) {
+		$state->fatal(OpenBSD::Temp->last_error);
+	}
 	my $pid = open(my $fh, "-|");
 	if (!defined $pid) {
-		$state->fatal("cannot fork: $!");
+		$state->fatal("cannot fork: #1", $!);
 	}
 	if ($pid == 0) {
-		# make things debuggable because this child doesn't matter
-		$DB::inhibit_exit = 0;
-		chdir $portsdir or exit 2;
-		open STDERR, '>', '/dev/null';
 		$ENV{FULLPATH} = 'Yes';
 		delete $ENV{FLAVOR};
 		delete $ENV{SUBPACKAGE};
 		$ENV{SUBDIR} = $pkgpath;
 		$ENV{ECHO_MSG} = ':';
+
+		if (!chdir $portsdir) {
+			$state->errsay("Can't chdir #1: #2", $portsdir, $!);
+			exit(2);
+		}
+		open STDERR, ">>", $errors;
+		# make sure the child starts with a single identity
+		$( = $); $< = $>;
 		# XXX we're already running as ${BUILD_USER}
 		# so we can't do this again
 		push(@action, 'PORTS_PRIVSEP=No');
+		$DB::inhibit_exit = 0;
 		exec $make ('make', @action);
 	}
 	my $plist = OpenBSD::PackingList->read($fh, $data);
+	while(<$fh>) {	# XXX avoid spurious errors from child
+	}
 	close($fh);
+	if ($? != 0) {
+		$state->errsay("child running '#2' failed: #1", 
+		    $state->child_error,
+		    join(' ', 'make', @action));
+		if (open my $fh, '<', $errors) {
+			while(<$fh>) {
+				$state->errprint("#1", $_);
+			}
+			close($fh);
+		}
+	}
+	unlink($errors);
 	return $plist;
 }
 

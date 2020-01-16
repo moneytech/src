@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,33 +14,31 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: string.h,v 1.12.18.6 2007/09/13 05:04:01 each Exp $ */
+/* $Id: string.h,v 1.9 2020/01/09 18:17:19 florian Exp $ */
 
 #ifndef ISC_STRING_H
 #define ISC_STRING_H 1
 
-/*! \file */
+/*! \file isc/string.h */
 
 #include <isc/formatcheck.h>
-#include <isc/int.h>
+
 #include <isc/lang.h>
 #include <isc/platform.h>
 #include <isc/types.h>
 
 #include <string.h>
 
-#ifdef ISC_PLATFORM_HAVESTRINGSH
 #include <strings.h>
-#endif
 
 #define ISC_STRING_MAGIC 0x5e
 
 ISC_LANG_BEGINDECLS
 
-isc_uint64_t
+uint64_t
 isc_string_touint64(char *source, char **endp, int base);
 /*%<
- * Convert the string pointed to by 'source' to isc_uint64_t.
+ * Convert the string pointed to by 'source' to uint64_t.
  *
  * On successful conversion 'endp' points to the first character
  * after conversion is complete.
@@ -198,33 +195,6 @@ isc_string_regiondup(isc_mem_t *mctx, const isc_region_t *source);
  *	NULL if memory for the copy could not be allocated
  *
  */
-
-char *
-isc_string_separate(char **stringp, const char *delim);
-
-#ifdef ISC_PLATFORM_NEEDSTRSEP
-#define strsep isc_string_separate
-#endif
-
-#ifdef ISC_PLATFORM_NEEDMEMMOVE
-#define memmove(a,b,c) bcopy(b,a,c)
-#endif
-
-size_t
-isc_string_strlcpy(char *dst, const char *src, size_t size);
-
-
-#ifdef ISC_PLATFORM_NEEDSTRLCPY
-#define strlcpy isc_string_strlcpy
-#endif
-
-
-size_t
-isc_string_strlcat(char *dst, const char *src, size_t size);
-
-#ifdef ISC_PLATFORM_NEEDSTRLCAT
-#define strlcat isc_string_strlcat
-#endif
 
 ISC_LANG_ENDDECLS
 

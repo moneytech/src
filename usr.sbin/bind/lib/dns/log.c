@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2001, 2003  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -14,8 +13,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $ISC: log.c,v 1.36.18.4 2005/09/05 00:18:24 marka Exp $ */
 
 /*! \file */
 
@@ -29,9 +26,9 @@
 
 /*%
  * When adding a new category, be sure to add the appropriate
- * #define to <dns/log.h>.
+ * \#define to <dns/log.h>.
  */
-LIBDNS_EXTERNAL_DATA isc_logcategory_t dns_categories[] = {
+isc_logcategory_t dns_categories[] = {
 	{ "notify", 	0 },
 	{ "database", 	0 },
 	{ "security", 	0 },
@@ -43,14 +40,19 @@ LIBDNS_EXTERNAL_DATA isc_logcategory_t dns_categories[] = {
 	{ "dispatch",	0 },
 	{ "lame-servers", 0 },
 	{ "delegation-only", 0 },
+	{ "edns-disabled", 0 },
+	{ "rpz",	0 },
+	{ "rate-limit",	0 },
+	{ "cname",	0 },
+	{ "spill",	0 },
 	{ NULL, 	0 }
 };
 
 /*%
  * When adding a new module, be sure to add the appropriate
- * #define to <dns/log.h>.
+ * \#define to <dns/log.h>.
  */
-LIBDNS_EXTERNAL_DATA isc_logmodule_t dns_modules[] = {
+isc_logmodule_t dns_modules[] = {
 	{ "dns/db",	 	0 },
 	{ "dns/rbtdb", 		0 },
 	{ "dns/rbtdb64", 	0 },
@@ -78,10 +80,14 @@ LIBDNS_EXTERNAL_DATA isc_logmodule_t dns_modules[] = {
 	{ "dns/hints",		0 },
 	{ "dns/acache",		0 },
 	{ "dns/dlz",		0 },
+	{ "dns/dnssec",		0 },
+	{ "dns/crypto",		0 },
+	{ "dns/packets",	0 },
+	{ "dns/ssu",		0 },
 	{ NULL, 		0 }
 };
 
-LIBDNS_EXTERNAL_DATA isc_log_t *dns_lctx = NULL;
+isc_log_t *dns_lctx = NULL;
 
 void
 dns_log_init(isc_log_t *lctx) {

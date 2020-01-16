@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2001  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -18,7 +17,7 @@
 #ifndef GENERIC_RT_21_H
 #define GENERIC_RT_21_H 1
 
-/* $ISC: rt_21.h,v 1.17.18.2 2005/04/29 00:16:40 marka Exp $ */
+/* $Id: rt_21.h,v 1.4 2020/01/09 18:17:17 florian Exp $ */
 
 /*!
  *  \brief Per RFC1183 */
@@ -26,7 +25,7 @@
 typedef struct dns_rdata_rt {
 	dns_rdatacommon_t	common;
 	isc_mem_t		*mctx;
-	isc_uint16_t		preference;
+	uint16_t		preference;
 	dns_name_t		host;
 } dns_rdata_rt_t;
 

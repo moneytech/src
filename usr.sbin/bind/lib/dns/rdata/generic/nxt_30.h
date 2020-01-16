@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2002  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -18,7 +17,7 @@
 #ifndef GENERIC_NXT_30_H
 #define GENERIC_NXT_30_H 1
 
-/* $ISC: nxt_30.h,v 1.21.18.2 2005/04/29 00:16:38 marka Exp $ */
+/* $Id: nxt_30.h,v 1.4 2020/01/09 18:17:17 florian Exp $ */
 
 /*!
  *  \brief RFC2535 */
@@ -28,7 +27,7 @@ typedef struct dns_rdata_nxt {
 	isc_mem_t		*mctx;
 	dns_name_t		next;
 	unsigned char		*typebits;
-	isc_uint16_t		len;
+	uint16_t		len;
 } dns_rdata_nxt_t;
 
 #endif /* GENERIC_NXT_30_H */

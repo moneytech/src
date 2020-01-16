@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh.c,v 1.507 2019/09/13 04:27:35 djm Exp $ */
+/* $OpenBSD: ssh.c,v 1.511 2020/01/05 16:28:22 beck Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -60,6 +60,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <limits.h>
 #include <locale.h>
@@ -150,6 +151,12 @@ char *config = NULL;
  * configuration file.
  */
 char *host;
+
+/*
+ * A config can specify a path to forward, overriding SSH_AUTH_SOCK. If this is
+ * not NULL, forward the socket at this path instead.
+ */
+char *forward_agent_sock_path = NULL;
 
 /* Various strings used to to percent_expand() arguments */
 static char thishost[NI_MAXHOST], shorthost[NI_MAXHOST], portstr[NI_MAXSERV];
@@ -1323,6 +1330,22 @@ main(int ac, char **av)
 		exit(0);
 	}
 
+	/* Expand SecurityKeyProvider if it refers to an environment variable */
+	if (options.sk_provider != NULL && *options.sk_provider == '$' &&
+	    strlen(options.sk_provider) > 1) {
+		if ((cp = getenv(options.sk_provider + 1)) == NULL) {
+			debug("Security key provider %s did not resolve; "
+			    "disabling", options.sk_provider);
+			free(options.sk_provider);
+			options.sk_provider = NULL;
+		} else {
+			debug2("resolved SecurityKeyProvider %s => %s",
+			    options.sk_provider, cp);
+			free(options.sk_provider);
+			options.sk_provider = xstrdup(cp);
+		}
+	}
+
 	if (muxclient_command != 0 && options.control_path == NULL)
 		fatal("No ControlPath specified for \"-O\" command");
 	if (options.control_path != NULL) {
@@ -1348,7 +1371,7 @@ main(int ac, char **av)
 	timeout_ms = options.connection_timeout * 1000;
 
 	/* Open a connection to the remote host. */
-	if (ssh_connect(ssh, host_arg, host, addrs, &hostaddr, options.port,
+	if (ssh_connect(ssh, host, host_arg, addrs, &hostaddr, options.port,
 	    options.address_family, options.connection_attempts,
 	    &timeout_ms, options.tcp_keep_alive) != 0)
 		exit(255);
@@ -1451,6 +1474,32 @@ main(int ac, char **av)
 				setenv(SSH_AUTHSOCKET_ENV_NAME, cp, 1);
 			}
 			free(cp);
+		}
+	}
+
+	if (options.forward_agent && (options.forward_agent_sock_path != NULL)) {
+		p = tilde_expand_filename(options.forward_agent_sock_path, getuid());
+		cp = percent_expand(p,
+		    "d", pw->pw_dir,
+		    "h", host,
+		    "i", uidstr,
+		    "l", thishost,
+		    "r", options.user,
+		    "u", pw->pw_name,
+		    (char *)NULL);
+		free(p);
+
+		if (cp[0] == '$') {
+			if (!valid_env_name(cp + 1)) {
+				fatal("Invalid ForwardAgent environment variable name %s", cp);
+			}
+			if ((p = getenv(cp + 1)) != NULL)
+				forward_agent_sock_path = p;
+			else
+				options.forward_agent = 0;
+			free(cp);
+		} else {
+			forward_agent_sock_path = cp;
 		}
 	}
 

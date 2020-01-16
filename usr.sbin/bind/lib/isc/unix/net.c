@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2003  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,38 +14,103 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: net.c,v 1.29.18.6 2007/09/13 23:46:26 tbox Exp $ */
+/* $Id: net.c,v 1.10 2020/01/09 13:45:33 florian Exp $ */
 
 #include <config.h>
 
+#include <sys/types.h>
+
+#if defined(HAVE_SYS_SYSCTL_H)
+#if defined(HAVE_SYS_PARAM_H)
+#include <sys/param.h>
+#endif
+#include <sys/sysctl.h>
+#endif
+#include <sys/uio.h>
+
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <isc/log.h>
 #include <isc/msgs.h>
 #include <isc/net.h>
+#include <isc/netdb.h>
 #include <isc/once.h>
 #include <isc/strerror.h>
 #include <isc/string.h>
 #include <isc/util.h>
 
-#if defined(ISC_PLATFORM_HAVEIPV6)
-# if defined(ISC_PLATFORM_NEEDIN6ADDRANY)
-const struct in6_addr isc_net_in6addrany = IN6ADDR_ANY_INIT;
-# endif
+#ifndef ISC_SOCKADDR_LEN_T
+#define ISC_SOCKADDR_LEN_T unsigned int
+#endif
 
-# if defined(ISC_PLATFORM_NEEDIN6ADDRLOOPBACK)
-const struct in6_addr isc_net_in6addrloop = IN6ADDR_LOOPBACK_INIT;
-# endif
+/*%
+ * Definitions about UDP port range specification.  This is a total mess of
+ * portability variants: some use sysctl (but the sysctl names vary), some use
+ * system-specific interfaces, some have the same interface for IPv4 and IPv6,
+ * some separate them, etc...
+ */
+
+/*%
+ * The last resort defaults: use all non well known port space
+ */
+#ifndef ISC_NET_PORTRANGELOW
+#define ISC_NET_PORTRANGELOW 1024
+#endif	/* ISC_NET_PORTRANGELOW */
+#ifndef ISC_NET_PORTRANGEHIGH
+#define ISC_NET_PORTRANGEHIGH 65535
+#endif	/* ISC_NET_PORTRANGEHIGH */
+
+#ifdef HAVE_SYSCTLBYNAME
+
+/*%
+ * sysctl variants
+ */
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__DragonFly__)
+#define USE_SYSCTL_PORTRANGE
+#define SYSCTL_V4PORTRANGE_LOW	"net.inet.ip.portrange.hifirst"
+#define SYSCTL_V4PORTRANGE_HIGH	"net.inet.ip.portrange.hilast"
+#define SYSCTL_V6PORTRANGE_LOW	"net.inet.ip.portrange.hifirst"
+#define SYSCTL_V6PORTRANGE_HIGH	"net.inet.ip.portrange.hilast"
+#endif
+
+#ifdef __NetBSD__
+#define USE_SYSCTL_PORTRANGE
+#define SYSCTL_V4PORTRANGE_LOW	"net.inet.ip.anonportmin"
+#define SYSCTL_V4PORTRANGE_HIGH	"net.inet.ip.anonportmax"
+#define SYSCTL_V6PORTRANGE_LOW	"net.inet6.ip6.anonportmin"
+#define SYSCTL_V6PORTRANGE_HIGH	"net.inet6.ip6.anonportmax"
+#endif
+
+#else /* !HAVE_SYSCTLBYNAME */
+
+#ifdef __OpenBSD__
+#define USE_SYSCTL_PORTRANGE
+#define SYSCTL_V4PORTRANGE_LOW	{ CTL_NET, PF_INET, IPPROTO_IP, \
+				  IPCTL_IPPORT_HIFIRSTAUTO }
+#define SYSCTL_V4PORTRANGE_HIGH	{ CTL_NET, PF_INET, IPPROTO_IP, \
+				  IPCTL_IPPORT_HILASTAUTO }
+/* Same for IPv6 */
+#define SYSCTL_V6PORTRANGE_LOW	SYSCTL_V4PORTRANGE_LOW
+#define SYSCTL_V6PORTRANGE_HIGH	SYSCTL_V4PORTRANGE_HIGH
+#endif
+
+#endif /* HAVE_SYSCTLBYNAME */
 
 # if defined(WANT_IPV6)
 static isc_once_t 	once_ipv6only = ISC_ONCE_INIT;
-# endif
 
-# if defined(ISC_PLATFORM_HAVEIN6PKTINFO)
 static isc_once_t 	once_ipv6pktinfo = ISC_ONCE_INIT;
-# endif
-#endif /* ISC_PLATFORM_HAVEIPV6 */
+# endif /* WANT_IPV6 */
+
+#ifndef ISC_CMSG_IP_TOS
+#ifdef __APPLE__
+#define ISC_CMSG_IP_TOS 0	/* As of 10.8.2. */
+#else /* ! __APPLE__ */
+#define ISC_CMSG_IP_TOS 1
+#endif /* ! __APPLE__ */
+#endif /* ! ISC_CMSG_IP_TOS */
 
 static isc_once_t 	once = ISC_ONCE_INIT;
 
@@ -55,6 +119,9 @@ static isc_result_t	ipv6_result = ISC_R_NOTFOUND;
 static isc_result_t	unix_result = ISC_R_NOTFOUND;
 static isc_result_t	ipv6only_result = ISC_R_NOTFOUND;
 static isc_result_t	ipv6pktinfo_result = ISC_R_NOTFOUND;
+static unsigned int	dscp_result =
+		ISC_NET_DSCPSETV4 | ISC_NET_DSCPRECVV4 | ISC_NET_DSCPPKTV4 |
+		ISC_NET_DSCPSETV6 | ISC_NET_DSCPRECVV6 | ISC_NET_DSCPPKTV6;
 
 static isc_result_t
 try_proto(int domain) {
@@ -67,6 +134,9 @@ try_proto(int domain) {
 		switch (errno) {
 #ifdef EAFNOSUPPORT
 		case EAFNOSUPPORT:
+#endif
+#ifdef EPFNOSUPPORT
+		case EPFNOSUPPORT:
 #endif
 #ifdef EPROTONOSUPPORT
 		case EPROTONOSUPPORT:
@@ -88,9 +158,7 @@ try_proto(int domain) {
 		}
 	}
 
-#ifdef ISC_PLATFORM_HAVEIPV6
 #ifdef WANT_IPV6
-#ifdef ISC_PLATFORM_HAVEIN6PKTINFO
 	if (domain == PF_INET6) {
 		struct sockaddr_in6 sin6;
 		unsigned int len;
@@ -129,8 +197,6 @@ try_proto(int domain) {
 		}
 	}
 #endif
-#endif
-#endif
 
 	(void)close(s);
 
@@ -140,15 +206,8 @@ try_proto(int domain) {
 static void
 initialize_action(void) {
 	ipv4_result = try_proto(PF_INET);
-#ifdef ISC_PLATFORM_HAVEIPV6
 #ifdef WANT_IPV6
-#ifdef ISC_PLATFORM_HAVEIN6PKTINFO
 	ipv6_result = try_proto(PF_INET6);
-#endif
-#endif
-#endif
-#ifdef ISC_PLATFORM_HAVESYSUNH
-	unix_result = try_proto(PF_UNIX);
 #endif
 }
 
@@ -175,7 +234,6 @@ isc_net_probeunix(void) {
 	return (unix_result);
 }
 
-#ifdef ISC_PLATFORM_HAVEIPV6
 #ifdef WANT_IPV6
 static void
 try_ipv6only(void) {
@@ -239,8 +297,6 @@ try_ipv6only(void) {
 		goto close;
 	}
 
-	close(s);
-
 	ipv6only_result = ISC_R_SUCCESS;
 
 close:
@@ -256,7 +312,7 @@ initialize_ipv6only(void) {
 }
 #endif /* WANT_IPV6 */
 
-#ifdef ISC_PLATFORM_HAVEIN6PKTINFO
+#ifdef WANT_IPV6
 static void
 try_ipv6pktinfo(void) {
 	int s, on;
@@ -296,7 +352,6 @@ try_ipv6pktinfo(void) {
 		goto close;
 	}
 
-	close(s);
 	ipv6pktinfo_result = ISC_R_SUCCESS;
 
 close:
@@ -309,33 +364,31 @@ initialize_ipv6pktinfo(void) {
 	RUNTIME_CHECK(isc_once_do(&once_ipv6pktinfo,
 				  try_ipv6pktinfo) == ISC_R_SUCCESS);
 }
-#endif /* ISC_PLATFORM_HAVEIN6PKTINFO */
-#endif /* ISC_PLATFORM_HAVEIPV6 */
+#endif /* WANT_IPV6 */
 
 isc_result_t
 isc_net_probe_ipv6only(void) {
-#ifdef ISC_PLATFORM_HAVEIPV6
 #ifdef WANT_IPV6
 	initialize_ipv6only();
 #else
 	ipv6only_result = ISC_R_NOTFOUND;
-#endif
 #endif
 	return (ipv6only_result);
 }
 
 isc_result_t
 isc_net_probe_ipv6pktinfo(void) {
-#ifdef ISC_PLATFORM_HAVEIPV6
-#ifdef ISC_PLATFORM_HAVEIN6PKTINFO
 #ifdef WANT_IPV6
 	initialize_ipv6pktinfo();
 #else
 	ipv6pktinfo_result = ISC_R_NOTFOUND;
 #endif
-#endif
-#endif
 	return (ipv6pktinfo_result);
+}
+
+unsigned int
+isc_net_probedscp(void) {
+	return (dscp_result);
 }
 
 void

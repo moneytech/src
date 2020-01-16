@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2001  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,19 +14,19 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: lib.h,v 1.1.6.3 2005/04/29 00:16:29 marka Exp $ */
+/* $Id: lib.h,v 1.4 2020/01/09 14:18:30 florian Exp $ */
 
 #ifndef DST_LIB_H
 #define DST_LIB_H 1
 
-/*! \file */
+/*! \file dst/lib.h */
 
 #include <isc/types.h>
 #include <isc/lang.h>
 
 ISC_LANG_BEGINDECLS
 
-LIBDNS_EXTERNAL_DATA extern isc_msgcat_t *dst_msgcat;
+extern isc_msgcat_t *dst_msgcat;
 
 void
 dst_lib_initmsgcat(void);

@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 2001  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,14 +14,14 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: version.h,v 1.3.18.2 2005/04/29 00:17:16 marka Exp $ */
+/* $Id: version.h,v 1.4 2020/01/09 14:18:30 florian Exp $ */
 
-/*! \file */
+/*! \file isccfg/version.h */
 
 #include <isc/platform.h>
 
-LIBISCCFG_EXTERNAL_DATA extern const char cfg_version[];
+extern const char cfg_version[];
 
-LIBISCCFG_EXTERNAL_DATA extern const unsigned int cfg_libinterface;
-LIBISCCFG_EXTERNAL_DATA extern const unsigned int cfg_librevision;
-LIBISCCFG_EXTERNAL_DATA extern const unsigned int cfg_libage;
+extern const unsigned int cfg_libinterface;
+extern const unsigned int cfg_librevision;
+extern const unsigned int cfg_libage;

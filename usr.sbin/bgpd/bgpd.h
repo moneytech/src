@@ -1,4 +1,4 @@
-/*	$OpenBSD: bgpd.h,v 1.394 2019/10/01 08:57:47 claudio Exp $ */
+/*	$OpenBSD: bgpd.h,v 1.397 2020/01/09 11:55:25 claudio Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -711,17 +711,16 @@ struct ctl_show_rib {
 	struct bgpd_addr	prefix;
 	struct bgpd_addr	remote_addr;
 	char			descr[PEER_DESCR_LEN];
-	time_t			lastchange;
+	time_t			age;
 	u_int32_t		remote_id;
 	u_int32_t		local_pref;
 	u_int32_t		med;
 	u_int32_t		weight;
 	u_int32_t		flags;
-	u_int16_t		aspath_len;
 	u_int8_t		prefixlen;
 	u_int8_t		origin;
 	u_int8_t		validation_state;
-	/* plus a aspath_len bytes long aspath */
+	/* plus an aspath */
 };
 
 enum as_spec {
@@ -1291,6 +1290,9 @@ int	trie_roa_check(struct trie_head *, struct bgpd_addr *, u_int8_t,
 	    u_int32_t);
 void	trie_dump(struct trie_head *);
 int	trie_equal(struct trie_head *, struct trie_head *);
+
+/* timer.c */
+time_t			 getmonotime(void);
 
 /* util.c */
 const char	*log_addr(const struct bgpd_addr *);

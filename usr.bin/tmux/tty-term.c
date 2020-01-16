@@ -1,4 +1,4 @@
-/* $OpenBSD: tty-term.c,v 1.68 2019/10/03 10:24:06 nicm Exp $ */
+/* $OpenBSD: tty-term.c,v 1.70 2020/01/12 21:07:07 nicm Exp $ */
 
 /*
  * Copyright (c) 2008 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -538,7 +538,7 @@ tty_term_find(char *name, int fd, char **cause)
 	 * do the best possible.
 	 */
 	if (!tty_term_flag(term, TTYC_XENL))
-		term->flags |= TERM_EARLYWRAP;
+		term->flags |= TERM_NOXENL;
 
 	/* Generate ACS table. If none is present, use nearest ASCII. */
 	memset(term->acs, 0, sizeof term->acs);
@@ -636,7 +636,8 @@ tty_term_string2(struct tty_term *term, enum tty_code_code code, int a, int b)
 }
 
 const char *
-tty_term_string3(struct tty_term *term, enum tty_code_code code, int a, int b, int c)
+tty_term_string3(struct tty_term *term, enum tty_code_code code, int a, int b,
+    int c)
 {
 	return (tparm((char *) tty_term_string(term, code), a, b, c));
 }

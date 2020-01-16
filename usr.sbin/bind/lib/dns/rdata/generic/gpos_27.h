@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 1999-2001  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -18,7 +17,7 @@
 #ifndef GENERIC_GPOS_27_H
 #define GENERIC_GPOS_27_H 1
 
-/* $ISC: gpos_27.h,v 1.13.18.2 2005/04/29 00:16:32 marka Exp $ */
+/* $Id: gpos_27.h,v 1.4 2020/01/09 18:17:17 florian Exp $ */
 
 /*!
  *  \brief per RFC1712 */
@@ -29,9 +28,9 @@ typedef struct dns_rdata_gpos {
 	char			*longitude;
 	char			*latitude;
 	char			*altitude;
-	isc_uint8_t		long_len;
-	isc_uint8_t		lat_len;
-	isc_uint8_t		alt_len;
+	uint8_t		long_len;
+	uint8_t		lat_len;
+	uint8_t		alt_len;
 } dns_rdata_gpos_t;
 
 #endif /* GENERIC_GPOS_27_H */

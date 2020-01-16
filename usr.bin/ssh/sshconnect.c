@@ -1,4 +1,4 @@
-/* $OpenBSD: sshconnect.c,v 1.319 2019/09/13 04:31:19 djm Exp $ */
+/* $OpenBSD: sshconnect.c,v 1.325 2020/01/11 16:23:10 naddy Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -31,6 +31,7 @@
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <ifaddrs.h>
@@ -128,7 +129,7 @@ ssh_proxy_fdpass_connect(struct ssh *ssh, const char *host,
 		    "proxy dialer: %.100s", strerror(errno));
 
 	command_string = expand_proxy_command(proxy_command, options.user,
-	    host_arg, host, port);
+	    host, host_arg, port);
 	debug("Executing proxy dialer command: %.500s", command_string);
 
 	/* Fork and execute the proxy command. */
@@ -211,7 +212,7 @@ ssh_proxy_connect(struct ssh *ssh, const char *host, const char *host_arg,
 		    strerror(errno));
 
 	command_string = expand_proxy_command(proxy_command, options.user,
-	    host_arg, host, port);
+	    host, host_arg, port);
 	debug("Executing proxy command: %.500s", command_string);
 
 	/* Fork and execute the proxy command. */
@@ -1370,6 +1371,7 @@ maybe_add_key_to_agent(char *authfile, struct sshkey *private,
     char *comment, char *passphrase)
 {
 	int auth_sock = -1, r;
+	const char *skprovider = NULL;
 
 	if (options.add_keys_to_agent == 0)
 		return;
@@ -1385,9 +1387,10 @@ maybe_add_key_to_agent(char *authfile, struct sshkey *private,
 		close(auth_sock);
 		return;
 	}
-
+	if (sshkey_is_sk(private))
+		skprovider = options.sk_provider;
 	if ((r = ssh_add_identity_constrained(auth_sock, private, comment, 0,
-	    (options.add_keys_to_agent == 3), 0)) == 0)
+	    (options.add_keys_to_agent == 3), 0, skprovider)) == 0)
 		debug("identity added to agent: %s", authfile);
 	else
 		debug("could not add identity to agent: %s (%d)", authfile, r);

@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 2000, 2001  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: timer.c,v 1.3.18.2 2005/04/29 00:16:06 marka Exp $ */
+/* $Id: timer.c,v 1.4 2020/01/09 18:17:15 florian Exp $ */
 
 /*! \file */
 
@@ -38,11 +37,11 @@ dns_timer_setidle(isc_timer_t *timer, unsigned int maxtime,
 		  unsigned int idletime, isc_boolean_t purge)
 {
 	isc_result_t result;
-	isc_interval_t maxinterval, idleinterval;
+	interval_t maxinterval, idleinterval;
 	isc_time_t expires;
 
 	/* Compute the time of expiry. */
-	isc_interval_set(&maxinterval, maxtime, 0);
+	interval_set(&maxinterval, maxtime, 0);
 	CHECK(isc_time_nowplusinterval(&expires, &maxinterval));
 
 	/*
@@ -50,7 +49,7 @@ dns_timer_setidle(isc_timer_t *timer, unsigned int maxtime,
 	 * work around the silly limitation of the ISC timer interface
 	 * that you cannot specify an idle interval of zero.
 	 */
-	isc_interval_set(&idleinterval, idletime, 1);
+	interval_set(&idleinterval, idletime, 1);
 
 	CHECK(isc_timer_reset(timer, isc_timertype_once,
 			      &expires, &idleinterval,

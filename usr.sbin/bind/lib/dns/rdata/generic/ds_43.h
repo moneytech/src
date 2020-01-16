@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 2002  Internet Software Consortium.
+ * Copyright (C) Internet Systems Consortium, Inc. ("ISC")
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $ISC: ds_43.h,v 1.3.20.2 2005/04/29 00:16:32 marka Exp $ */
+/* $Id: ds_43.h,v 1.4 2020/01/09 18:17:17 florian Exp $ */
 
 #ifndef GENERIC_DS_43_H
 #define GENERIC_DS_43_H 1
@@ -25,10 +24,10 @@
 typedef struct dns_rdata_ds {
 	dns_rdatacommon_t	common;
 	isc_mem_t		*mctx;
-	isc_uint16_t		key_tag;
-	isc_uint8_t		algorithm;
-	isc_uint8_t		digest_type;
-	isc_uint16_t		length;
+	uint16_t		key_tag;
+	uint8_t		algorithm;
+	uint8_t		digest_type;
+	uint16_t		length;
 	unsigned char		*digest;
 } dns_rdata_ds_t;
 

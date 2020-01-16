@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.471 2019/08/12 09:49:21 claudio Exp $
+#	$OpenBSD: Makefile,v 1.476 2019/12/21 21:40:00 espie Exp $
 
 .include <bsd.own.mk>
 
@@ -48,7 +48,7 @@ MUTABLE=changelist daily etc.${MACHINE}/disktab \
 EXAMPLES=acme-client.conf chio.conf dhclient.conf dhcpd.conf exports \
 	httpd.conf ifstated.conf inetd.conf man.conf mixerctl.conf \
 	mrouted.conf ntpd.conf printcap rad.conf rbootd.conf \
-	remote unwind.conf sensorsd.conf wsconsctl.conf
+	remote sensorsd.conf wsconsctl.conf
 
 # -rw-------
 EXAMPLES_600=bgpd.conf doas.conf dvmrpd.conf eigrpd.conf hostapd.conf \
@@ -68,7 +68,7 @@ RCDAEMONS=amd apmd bgpd bootparamd cron dhcpd dhcrelay dhcrelay6 dvmrpd \
 
 MISETS=	base${OSrev}.tgz comp${OSrev}.tgz man${OSrev}.tgz game${OSrev}.tgz
 
-all clean cleandir depend etc install:
+all clean cleandir etc install:
 
 install-mtree:
 	${INSTALL} -c -o root -g wheel -m 600 mtree/special \
@@ -182,6 +182,8 @@ distribution-etc-root-var: distrib-dirs
 	    ${DESTDIR}/var/cron/log
 	${INSTALL} -c -o root -g wheel -m 444 /dev/null \
 	    ${DESTDIR}/var/db/locate.database
+	${INSTALL} -c -o _rpki-client -g wheel -m 644 /dev/null \
+	    ${DESTDIR}/var/db/rpki-client/openbgpd
 	${INSTALL} -c -o ${BINOWN} -g wheel -m 640 /dev/null \
 	    ${DESTDIR}/var/log/authlog
 	${INSTALL} -c -o ${BINOWN} -g wheel -m 640 /dev/null \
